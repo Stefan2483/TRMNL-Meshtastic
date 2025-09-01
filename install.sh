@@ -1,10 +1,11 @@
 #!/bin/bash
 # Meshtastic TRMNL Plugin Installation Script for Raspberry Pi
-# Run with: curl -sSL https://raw.githubusercontent.com/your-repo/install.sh | bash
+# Fixes protobuf compatibility issues
 
 set -e
 
 echo "🚀 Installing Meshtastic TRMNL Plugin on Raspberry Pi..."
+echo "🔧 This script will fix protobuf compatibility issues..."
 
 # Check if running on Raspberry Pi
 if ! grep -q "Raspberry Pi" /proc/cpuinfo; then
@@ -34,9 +35,31 @@ echo "🔧 Setting up Python virtual environment..."
 python3 -m venv venv
 source venv/bin/activate
 
-# Install Python packages
-pip install --upgrade pip
-pip install meshtastic requests
+# Clean any existing installations that might cause conflicts
+echo "🧹 Cleaning existing installations..."
+pip uninstall -y meshtastic protobuf google || true
+
+# Install Python packages with compatible versions
+echo "📦 Installing compatible Python packages..."
+pip install --upgrade pip setuptools wheel
+
+# Install specific protobuf version that works with meshtastic
+pip install "protobuf>=3.19.0,<4.0.0"
+
+# Install other dependencies
+pip install requests
+
+# Install meshtastic
+pip install meshtastic
+
+# Verify installation
+echo "🧪 Testing meshtastic installation..."
+python -c "import meshtastic; print('✅ Meshtastic library successfully installed!')" || {
+    echo "❌ Meshtastic import failed, trying alternative protobuf version..."
+    pip uninstall -y protobuf
+    pip install "protobuf==3.19.6"
+    python -c "import meshtastic; print('✅ Meshtastic library working with protobuf 3.19.6!')"
+}
 
 # Download the Python backend script
 echo "📥 Downloading Meshtastic TRMNL backend..."
@@ -475,6 +498,24 @@ EOF
 echo ""
 echo "✅ Installation complete!"
 echo ""
+echo "🔍 Testing Meshtastic device connection..."
+
+# Test USB device detection
+echo "📱 Looking for USB devices..."
+lsusb | grep -i "heltec\|esp32\|cp210\|ch340" || echo "⚠️  No obvious Meshtastic device found via lsusb"
+
+# Check for serial devices
+echo "🔌 Available serial devices:"
+ls /dev/tty* | grep -E "(USB|ACM)" || echo "⚠️  No USB serial devices found"
+
+echo ""
+echo "🧪 Testing meshtastic CLI..."
+meshtastic --version || {
+    echo "❌ Meshtastic CLI test failed"
+    echo "💡 Try: source venv/bin/activate && python -m meshtastic --version"
+}
+
+echo ""
 echo "📋 Next steps:"
 echo "1. Edit .env file and add your TRMNL webhook URL"
 echo "2. Test the connection: ./meshtastic_trmnl.py --test"
@@ -487,6 +528,12 @@ echo "🔧 Configuration:"
 echo "   - Edit: $PROJECT_DIR/.env"
 echo "   - Service: sudo systemctl [start|stop|status] meshtastic-trmnl"
 echo "   - Logs: journalctl -u meshtastic-trmnl -f"
+echo ""
+echo "🐛 Troubleshooting:"
+echo "   - Test CLI: source venv/bin/activate && meshtastic --info"
+echo "   - Check device: ls /dev/tty* | grep -E '(USB|ACM)'"
+echo "   - Debug script: ./meshtastic_trmnl.py --test --debug"
+echo "   - Check logs: tail -f meshtastic-trmnl.log"
 EOF
 
 chmod +x install.sh
