@@ -34,7 +34,7 @@ The system consists of two main components:
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/meshtastic-trmnl.git
+git clone https://github.com/Stefan2483/meshtastic-trmnl.git
 cd meshtastic-trmnl
 ```
 
